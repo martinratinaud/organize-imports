@@ -10,11 +10,10 @@ module.exports =
     ast = recast.parse code, {
       esprima: babel
     }
-
     return if not ast.program
 
-    imports = ast.program.body.filter (node) -> node.type is 'ImportDeclaration'
-
+    imports = ast.program.body.filter (node) ->
+      node.type is 'ImportDeclaration'
     imports.sort (a, b) ->
       sA = scoreOf a
       sB = scoreOf b
@@ -30,17 +29,32 @@ module.exports =
 
   organize: ->
     editor = atom.workspace.getActivePaneItem()
-    # bufferRange = editor.getSelectedBufferRange()
 
-    # if bufferRange.start.isEqual(bufferRange.end)
     contents = editor.getText()
     editor.setText @organizeImports contents
-    return
 
-    # contents = editor.getTextInBufferRange [
-    #   [bufferRange.start.row, 0],
-    #   [bufferRange.end.row + 1, 0]
-    # ]
-    #
-    # editor.setTextInBufferRange [[start, 0], [end, 0]], @organizeImports contents
-    # return
+    newContents = editor.getText()
+    lines = newContents.split(/\n/)
+
+    # Retrieve last import line
+    for line, index in lines
+      if (/^import/.test line)
+        lastImportLine = index
+
+    # remove all empty lines in the import section and sort them by type of import
+    updatedLines = []
+    previousFirstCharacterAfterQuote = ''
+    for line, index in lines
+      updatedLines.push line if index > lastImportLine
+
+      if index <= lastImportLine and line isnt ''
+        firstQuoteOccurence = line.indexOf "'"
+        firstCharacterAfterQuote = line[firstQuoteOccurence + 1]
+        updatedLines.push '' if firstCharacterAfterQuote isnt previousFirstCharacterAfterQuote and ((firstCharacterAfterQuote is '~' or firstCharacterAfterQuote is '.') or (previousFirstCharacterAfterQuote is '~' or previousFirstCharacterAfterQuote is '.'))
+        updatedLines.push line
+        previousFirstCharacterAfterQuote = firstCharacterAfterQuote;
+
+    # finally write back the data
+    updatedContents = updatedLines.join "\n"
+    editor.setText updatedContents
+    return
